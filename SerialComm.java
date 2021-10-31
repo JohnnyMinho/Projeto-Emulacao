@@ -7,11 +7,13 @@
 *   MIGUEL PEREIRA A94152
 * *  */
 
+import java.awt.*;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Scanner;
 import com.fazecast.jSerialComm.SerialPort;
-import java.util.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.lang.*;
@@ -26,6 +28,7 @@ public class SerialComm {
             Scanner input = new Scanner(System.in);
             long total_time;
             int counter = 0;
+            String OS_BEING_USED = System.getProperty("os.name");
             boolean You_Pass;
 
             //ver disponibilidade das portas (getCommPorts / check ports/
@@ -34,7 +37,14 @@ public class SerialComm {
                 System.out.println("No Ports Available");
                 System.out.println("Press Any key to Exit. \n If You wish to restart press R");
                 String exit_option = input.nextLine();
-                System.exit(1);
+                if(exit_option == "R" || exit_option == "r"){
+                    //Implementar reset
+                }
+                else{
+                    System.exit(1);
+                }
+
+
             }
 
             //Selecionar Port
@@ -50,24 +60,36 @@ public class SerialComm {
             //configuração da porta série (baudrate, bits (8), stop bits (1), paridade (0))
             Selected_Port.setComPortParameters(115200, 8, 1 , 0);
 
-            System.out.print("\033[H\033[2J"); //limpar consola
 
-            System.out.println("SELECTED PORT: " + Selected_Port.toString());
+
+            if(OS_BEING_USED.contains("win")){
+                System.out.print("\033[H\033[2J"); //limpar consola
+                System.out.flush();
+                System.out.println("SYSTEM BEING USED: " + OS_BEING_USED);
+            }
+            if(OS_BEING_USED.contains("nix") || OS_BEING_USED.contains("nux") || OS_BEING_USED.contains("aix")){
+                System.out.print("\033[H\033[2J"); //limpar consola
+                System.out.flush();
+                System.out.println("SYSTEM BEING USED: " + OS_BEING_USED);
+            }
+
+            System.out.println("SELECTED PORT: " + Selected_Port);
             System.out.println(" _________________________________");
             System.out.println("<1.ENVIAR TEXTO                     >");
             System.out.println("<2.ENVIAR IMAGEM                    >");
             System.out.println("<3.RECEBER TEXTO                    >");
             System.out.println("<4.RECEBER IMAGEM                   >");
             System.out.println("<5.VERIFICAR CONEXÃO                >");
-            System.out.println("<5.SAIR                             >");
+            System.out.println("<6.SAIR                             >");
             System.out.println(" ---------------------------------");
 
             option = input.nextInt();
 
-            while(option<1 || option>5 ){
+            while(option<1 || option>6 ){
                 System.out.println("Choose an valid option");
                 option = input.nextInt();
             }
+
             switch(option){
                 case 1: //Enviar mensagem tentar fazer texto escrito em consola, mas também texto de um ficheiro
                     System.out.println("1. SEND FROM TEXT \n 2.SEND FROM TEXT FROM FILE");
@@ -76,30 +98,35 @@ public class SerialComm {
                         System.out.println("Choose an valid option");
                         option = input.nextInt();
                     }
-                    if(option == 1){
-                        start_clock = System.currentTimeMillis();
-                        String To_Send = input.nextLine();
-                        byte[] Text_Send = To_Send.getBytes(StandardCharsets.UTF_8);
-                        Selected_Port.writeBytes(Text_Send, Text_Send.length);
-                        turnoff_clock = System.currentTimeMillis();
-                        total_time = turnoff_clock - start_clock;
-                    }
-                    if(option == 2){
-                        start_clock = System.currentTimeMillis();
-                        turnoff_clock = System.currentTimeMillis();
-                        total_time = turnoff_clock - start_clock;
-                    }
+                    start_clock = System.currentTimeMillis();
+                    SendText_File(Selected_Port, option);
+                    turnoff_clock = System.currentTimeMillis();
+                    total_time = start_clock - turnoff_clock;
+                    System.out.println("This message took " + total_time + "ms to be sent");
                     break;
                 case 2: //Enviar imagem (introduzir path)
+                    start_clock = System.currentTimeMillis();
+                    SendImage(Selected_Port);
+                    turnoff_clock = System.currentTimeMillis();
+                    total_time = start_clock - turnoff_clock;
+                    System.out.println("This image took " + total_time + "ms to be sent");
                     break;
                 case 3: //Recceber Mensagem de texto
                     byte[] buffer_toreceive = new byte[8192];
-
+                    String File_Store = "C:/";
+                    Receive_Text(Selected_Port,buffer_toreceive,8192, File_Store);
+                    Selected_Port.closePort();
                     break;
                 case 4: //Receber Imagem
-                    break;
-                case 5: //Sair do programa
+
                     Selected_Port.closePort();
+                    break;
+                case 5: //Verificar Conexão verifica se o port ainda está ligado, e envia uma mensagem de teste entre o arduinos.
+
+                    break;
+                case 6: //Sair do programa
+                    Selected_Port.closePort();
+                    System.out.println("The Program will exit now.");
                     System.exit(0);
                     break;
             }
@@ -127,39 +154,43 @@ public class SerialComm {
             return tobereturned;
     }
     //Função para enviar texto contido em ficheiro entre os DevKits
-    public void SendText_File(SerialPort Selected_Port) throws IOException{
-            int OS_BEING_USED = OS_USED();
-            byte[] Text_File = (Files.readAllBytes(Paths.get("C:/")));
-          //  int buffer_size = Text_File.length; a usar futuramente
-
-          /*  if(OS_BEING_USED == 1){
+    public static void SendText_File(SerialPort Selected_Port, int option) throws IOException{
+            //String OS_BEING_USED = OS_USED();
+        //  int buffer_size = Text_File.length; a usar futuramente
+            Scanner input = new Scanner(System.in);
+        if(option == 1){
+            String To_Send = input.nextLine();
+            byte[] Text_Send = To_Send.getBytes(StandardCharsets.UTF_8);
+            Selected_Port.writeBytes(Text_Send, Text_Send.length);
+        }
+        if(option == 2){
+            /*  if(OS_BEING_USED == 1){
 
             }
             if(OS_BEING_USED == 2){
 
             } Implementar caso haja tempo */
+            byte[] Text_File = (Files.readAllBytes(Paths.get("C:/")));
             Selected_Port.writeBytes(Text_File, 8192); //Definir ficheiro e tamanho
+        }
     }
 
     //Função para enviar imagens entre os DevKits
-    public void SendImage(SerialPort Selected_Port){
+    public static void SendImage(SerialPort Selected_Port) throws IOException{
+        byte[] Image_to_byte = Files.readAllBytes(Paths.get("C://"));
+        Selected_Port.writeBytes(Image_to_byte, 8192);
 
     }
-    public void Receive_Text(SerialPort Selected_Port){
-        byte[] buffer_receive = new byte[8192];
-    }
-    //Devido a diferenças em alguns pontos, o sistema que está a ser usado pelo utilizador é verificado
-    public static int OS_USED(){
-        int return_system = 0;
-        String what_system = System.getProperty("os.name");
-        if(what_system.contains("Windows")){
-            return_system = 1;
+
+    public static void Receive_Text(SerialPort Selected_Port, byte[] buffer,int size, String File_Store) throws IOException{
+        while(Selected_Port.bytesAvailable()<size){
+            System.out.println("RECEIVING MESSAGE. AWAIT"); //O Programa espera até que todos os bytes sejam recebidos
         }
-        if(what_system.contains("Linux")){
-            return_system = 2;
-        }
-        return return_system;
+        Selected_Port.readBytes(buffer,size);
+        Files.write(new File(File_Store).toPath(), buffer);
     }
+
+
     }
 
 
