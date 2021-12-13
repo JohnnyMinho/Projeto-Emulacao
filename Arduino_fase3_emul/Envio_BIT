@@ -1,0 +1,139 @@
+#include "RF24.h"
+#include "nRF24L01.h"
+#include <SPI.h>;
+#include <CRCx.h>;
+
+
+
+RF24 radio(16,17); //Configuração dos pinos CE, CSN (Pinos na placa ESP32)
+
+#define TIMEOUT_TIME 25000 // 25 milisegundos
+#define Packet_1 0b11111111
+#define Packet_2 0b11100111
+#define NPackets 200
+
+byte Adresses[2][6] = {"00001","00002"}; //Define os endereções usados na comunicação
+//String aux_string;
+byte Packet[32]; // Distribuição da trama, 1 byte para header , 30 bytes de data, 1 byte (8bits dedicados a CRC)
+byte PacketCRC[30];
+//char Aux_Array[30];
+byte Ack = 0b0000000;
+byte Packet_3 = 0b10000010;
+int counter = 0;
+long Start_Timer = 0;
+long timer = 0;
+bool timeout = false;
+bool I_Started = false;
+bool I_Received_Something = false;
+bool Send_Dif = false; //Como os bits de cada packet são pre-definidos, os bits do packet mudam a cada packet
+int SequenceBit = 0; //Se o pacote a mandar é diferente, o bit de sequência vai mudar
+int Sent_Packets = 0; //Conta o numero de pacotes enviado sendo que no momento em que o n 100 é enviado, é enviado o pacote que sinaliza o final
+
+void setup() {
+  Serial.begin(115200); //baudrate de 115200 bit/sec 
+  radio.begin();
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setChannel(100); // 2476 Mhz (RF24 channel 77))83 => 2483 Mhz (RF24 channel 84)
+  radio.disableCRC();
+  radio.openWritingPipe(Adresses[0]);
+  radio.openReadingPipe(1,Adresses[1]);
+  radio.setAutoAck(false);
+  radio.setDataRate(RF24_1MBPS); //velocidade de transmissão de 1MBPS
+  radio.stopListening(); //Para o listening no modulo RF24 que está a enviar
+
+}
+
+void loop() {
+delay(100);
+radio.stopListening();
+if(!I_Started){
+   while (!Serial.available()) {
+    Serial.println(F("Press any key to start"));
+    delay(1000);
+   }
+   I_Started = true;
+  }
+
+CreatePacket(SequenceBit);
+if(radio.write(&Packet, sizeof(Packet))){
+  timer = micros();
+  Serial.println(Sent_Packets);
+  Serial.println("Packet Sent with CRC: ");
+  Serial.println(Packet[32]);
+  Sent_Packets++;
+  Start_Timer = micros();
+  radio.startListening();
+  delay(50);
+}
+
+
+  while(!radio.available()){
+    if(micros()-timer > TIMEOUT_TIME){
+      timeout = true;
+    }
+  }
+  if(!timeout){
+    radio.read(&Ack, sizeof(Ack));
+    Serial.println(Ack);
+    CheckACK();
+    Ack = 0b00000000;
+  }
+  else{
+    Serial.println("-TIME OUT-");
+    timeout = false;
+  }
+  if(Sent_Packets == 250){
+    radio.write(&Packet_3, sizeof(Packet_3));
+    Serial.println("FIM");
+    while(1);
+  }
+}
+
+//------------------------------------------------------Criar Pacote-------------------------------------------------------------------
+
+void CreatePacket(int NewSequenceBit){
+  Packet[0] = 0b01101110;  //Endereço emissor (01) Endereço receptor(10) Tipo (111) Sequência (0) 
+  bitWrite(Packet[0],0,SequenceBit);
+  for(counter = 0;counter < 30; counter++){ //Introduzimos os dados a ser enviados no pacoteCRC visto que este vai ser o pacote a sofrer o CRC para os seus dados
+    if(Send_Dif == true){
+      PacketCRC[counter] = Packet_2;
+    }
+    else{
+      PacketCRC[counter] = Packet_1;
+    }
+  }
+ for(counter = 1; counter < 31; counter ++){
+    Packet[counter] = PacketCRC[counter]; // Introduzimos na trama, os dados 
+ }
+ Packet[31] = crcx::crc8(PacketCRC, sizeof(Packet));
+ 
+}
+
+//--------------------------------------------------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------Verificação do ACK----------------------------------------------------------
+void CheckACK(){
+  if(bitRead(Ack, 1) == 0 && bitRead(Ack, 2) == 1 && bitRead(Ack, 3) == 0){ // Como o bitRead lê do least significant bit para o MSB, a ordem dos bits é contrária à escrita
+    Serial.println("Recebido com sucesso"); 
+    Serial.println(Ack);
+    I_Received_Something = true;
+    if(SequenceBit == 0){
+      Send_Dif = true;
+      SequenceBit = 1;
+    }
+    else if(SequenceBit == 1){
+      Send_Dif = false;
+      SequenceBit = 0;
+    }
+  }
+  else if(bitRead(Ack, 1) == 1 && bitRead(Ack, 2) == 0 && bitRead(Ack, 3) == 0){
+    Serial.println(Ack);
+    Serial.println("NACK recebido");
+    I_Received_Something = true;
+  }
+  if(!I_Received_Something){
+    Serial.println("ACK OU NACK PERDIDO");
+  }
+  I_Received_Something = false;
+}
