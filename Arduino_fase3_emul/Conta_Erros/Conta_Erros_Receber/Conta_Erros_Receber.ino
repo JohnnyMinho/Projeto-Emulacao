@@ -60,16 +60,18 @@ void CheckPacket(){
    
    if(SequenceBit == Prev_SequenceBit && Waiting_Retrans){
     Serial.println("PACKET REPETIDO");
+    Waiting_Retrans = false;
     Npackets--;
   }
   if(bitRead(Packet[0], 3) == 0 && bitRead(Packet[0], 2) == 1 && bitRead(Packet[0], 1) == 1){
-  for(counter = 1; counter<31;counter++){
-    Aux_Packet[counter] = Packet[counter];
+  for(counter = 0; counter<30;counter++){
+    Aux_Packet[counter] = Packet[counter+1];
     Serial.println((char)Aux_Packet[counter]);
     //Serial.println(System.Text.Encoding.ASCII.GetString(Aux_Packet[counter]).ToCharArray();System.Text.Encoding.ASCII.GetString(Aux_Packet[counter]).ToCharArray());
   }
   crc = crcx::crc8(Aux_Packet, sizeof(Aux_Packet));
-  if(crc = Packet[31]){
+  Serial.println(crc);
+  if(crc == Packet[31]){
     Serial.println("Sending ACK");
     Ack_OR_Nack = true;// Ack_OR_Nack a verdadeiro, logo um ACK vai ser enviado
     Prev_SequenceBit = SequenceBit;
