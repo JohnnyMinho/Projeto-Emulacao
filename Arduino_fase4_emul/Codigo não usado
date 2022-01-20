@@ -1,0 +1,17 @@
+/*BytesFromFile = Text_File.length;
+           nPackets = (int) Math.ceil(BytesFromFile/30);
+            for(counter = 0 ; counter < nPackets ; counter++){
+                byte[] bytesToSend = new byte[31];
+                if(counter == nPackets-1){
+                    bytesToSend[0] = 0b00011010;
+                }
+                else{
+                    bytesToSend[0] = 0b00010110;
+                }
+                for(insert_counter = 1; insert_counter<31; insert_counter++){
+                    if(insert_counter+text_newpos == BytesFromFile)
+                    bytesToSend[insert_counter] = Text_File[insert_counter+text_newpos];
+                }
+                text_newpos = text_newpos+30; //proxima posição no ficheiro de texto será 30 bytes à frente da que foi enviada
+                while(Selected_Port.bytesAvailable()<BytesFromFile);
+            }*/
