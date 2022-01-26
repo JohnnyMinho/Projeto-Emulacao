@@ -326,6 +326,7 @@ public class Fase4_Java extends JFrame {
 
     public static void chat(SerialPort Selected_Port) throws IOException {
         Scanner inputchat = new Scanner(System.in);
+        String to_send;
         boolean Leave_chat = false;
         boolean valid_op = false;
         int option_inp = 0;
@@ -347,9 +348,62 @@ public class Fase4_Java extends JFrame {
             }
             switch (option_inp) {
                 case 1:
-
+                    System.out.println("Digite a mensagem que quer enviar: ");
+                    to_send = inputchat.next();
+                    byte[] byte_send = to_send.getBytes(StandardCharsets.UTF_8);
+                    int counter = 0;
+                    int size_contador = 0;
+                    int text_newpos = 0;
+                    int insert_counter = 0;
+                    boolean sucesso_envio = false;
+                    int String_size = byte_send.length;
+                    float BytesFromFile = byte_send.length;
+                    int nPackets = (int) Math.ceil(BytesFromFile / 30.0);
+                    System.out.println(" " + nPackets);
+                    for (counter = 0; counter < nPackets; counter++) {
+                        sucesso_envio = false;
+                        byte[] bytesToSend = new byte[30];
+                        if (String_size > 30) {
+                            size_contador = 30;
+                            String_size -= 30;
+                        } else {
+                            size_contador = String_size;
+                        }
+                        for (insert_counter = 0; insert_counter < size_contador; insert_counter++) {
+                            bytesToSend[insert_counter] = byte_send[insert_counter + text_newpos];
+                        }
+                        Selected_Port.writeBytes(bytesToSend, size_contador);
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        text_newpos = text_newpos + 30; //proxima posição no ficheiro de texto será 30 bytes à frente da que foi enviad
+                        while (!sucesso_envio) {
+                            byte[] bufferackfinal = new byte[2];
+                            Selected_Port.readBytes(bufferackfinal, 1);
+                            System.out.println(" " + bufferackfinal[0]);
+                            if (bufferackfinal[0] == 'B') {
+                                sucesso_envio = true;
+                            }
+                        }
+                    }
                     break;
                 case 2:
+                    boolean sucesso = false;
+                    int counter_receber = 30;
+                    byte[] data = new byte[30];
+                    while (!sucesso) {
+                        while (Selected_Port.bytesAvailable() < 30);
+                        Selected_Port.readBytes(data, 30);
+                        if(data[0] == 'F' && data[1] == 'I' && data[2] == 'M'){
+                            sucesso = true;
+                            for(counter_receber = 0; counter_receber < 30; counter_receber++){
+                                System.out.print("Recebido: ");
+                                System.out.print(" " + (char)data[counter_receber]);
+                            }
+                        }
+                    }
                     break;
                 case 3:
                     Leave_chat = true;
