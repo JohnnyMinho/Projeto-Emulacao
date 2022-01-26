@@ -47,95 +47,23 @@ void setup() {
 }
 
 void loop() {
-
-if(!I_Started){
-   while (!Serial.available());
-   if(Serial.available()){
-    I_Started = true;
-   }
-   /* aux_string = Serial.readStringUntil('\n');
-    org_string_size = aux_string.length();
-    string_size = org_string_size;
-    aux_string.toCharArray(Aux_Array, sizeof(Aux_Array));
-    if(string_size > 30){
-      times_to_send = string_size/30;
-      times_to_send = ceil(times_to_send);
-    }
-    else{
-      times_to_send = 1;
-    }*/
-   }
-while(Serial.available()){
-  if(Serial.available()>0){
-    Aux_Array[counter_receber] = Serial.read();
-    counter_receber++;
+radio.stopListening();
+if(Serial.available() > 0 ){
+    memset(Packet,' ', 30);
+    memset(Aux_Array,' ', sizeof(Aux_Array));
+    Serial.readBytes(Aux_Array,sizeof(Aux_Array));
+    counter_receber = sizeof(Aux_Array);
     array_size = counter_receber;
-  }
+    *Packet = CreatePacket(Send_Dif, Aux_Array,array_size);
+ }
+
 if(counter_receber > 0){
   while(!Ack_or_Nack){
-    *Packet = CreatePacket(Send_Dif, Aux_Array,array_size);
+    envia();
   }
+  Ack_or_Nack = false;
+  counter_receber = 0;
 }
-memset(Packet,'\0', 30);
-radio.stopListening();
-
-Send_Dif = false;
-
-if(radio.write(&Packet, sizeof(Packet))){
-  timer = micros();
-  //Serial.println("Packet Sent");
-  //Serial.println(Sent_Packets+1); // Como a contagem dos pacotes começa em 0 precisamos de indicar desta maneira
-  Start_Timer = micros()+100;
-  radio.startListening();
-  delay(100);
-}
-
-  while(!radio.available()){
-    if(micros()-(timer+100)>= TIMEOUT_TIME){
-      timeout = true;
-    }
-  }
-  if(!timeout){
-    radio.read(&Ack, sizeof(Ack));
-    Ack_or_Nack = CheckACK(Ack);
-    if(Ack_or_Nack){
-      if(counter == 1){
-        Sent_Packets++;
-      }
-      else{
-      //posArray = posArray+30;
-      //string_size = string_size-30;
-      }
-      Send_Dif = true;
-      Ack_or_Nack = false;
-    }
-    else{
-      if(Sent_Packets != 0){
-      Resent_Packets++;
-      Sent_Packets--;
-      }
-    }
-    Ack = 0b00000000;
-  }
-  else{
-    //Serial.println("-TIME OUT-");
-    //counter = ceil(times_to_send);
-    timeout = false;
-    break;
-    }
-}
- /* if(Sent_Packets == total_pacotes){
-    debito = ((Sent_Packets-Resent_Packets)*times_to_send*32.0*8.0)/((micros()-Start_Timer)*0.000001);
-    //Serial.print("Debito ");
-   //Serial.println(debito);
-   // Serial.println("FIM");
-    while(1);
-  }
-  else{
-      Total_Time = Total_Time + (micros()-Start_Timer);
-      posArray = 0;
-      string_size = org_string_size;
-}*/
 }
 
 //------------------------------------------------------Criar Pacote-------------------------------------------------------------------
@@ -168,12 +96,54 @@ byte CreatePacket(bool SendDif, byte* Text,int tamanho_array){
  Packet[31] = crcx::crc8(PacketCRC, sizeof(PacketCRC));
  return *Packet;
 }
+//----------------------------------------------------------Envia------------------------------------
+
+void envia(){
+  if(radio.write(&Packet, sizeof(Packet))){
+  timer = micros();
+  //Serial.println("Packet Sent");
+  //Serial.println(Sent_Packets+1); // Como a contagem dos pacotes começa em 0 precisamos de indicar desta maneira
+  Start_Timer = micros()+100;
+  radio.startListening();
+  delay(100);
+}
+  while(!radio.available()){
+    if(micros()-(timer+100)>= TIMEOUT_TIME){
+      timeout = true;
+      break;
+    }
+  }
+  if(!timeout){
+    radio.read(&Ack, sizeof(Ack));
+    Ack_or_Nack = CheckACK(Ack);
+    if(Ack_or_Nack){
+      Serial.write(Ack);
+      Sent_Packets++;
+      Send_Dif = true;
+    }
+    else{
+      Serial.write(Ack);
+      Ack_or_Nack = false;
+      if(Sent_Packets != 0){
+      Resent_Packets++;
+      Sent_Packets--;
+      }
+    }
+    Ack = 0b00000000;
+  }
+  else{
+    //Serial.println("-TIME OUT-");
+    //counter = ceil(times_to_send);
+    timeout = false;
+    }
+    radio.stopListening();
+}
 
 //----------------------------------------------------------Verificação do ACK----------------------------------------------------------
 bool CheckACK(byte Ack_Received){
   bool flag1 = false;
   if(bitRead(Ack, 1) == 1 && bitRead(Ack, 2) == 0 && bitRead(Ack, 3) == 0){ // Como o bitRead lê do least significant bit para o MSB, a ordem dos bits é contrária à escrita
-    Serial.println("Recebido com sucesso"); 
+    //Serial.println("Recebido com sucesso"); 
     //Serial.println(Ack);
     I_Received_Something = true;
     flag1 = true;
@@ -181,11 +151,12 @@ bool CheckACK(byte Ack_Received){
   else if(bitRead(Ack, 1) == 0 && bitRead(Ack, 2) == 1 && bitRead(Ack, 3) == 0){
     //Serial.println(Ack);
     flag1 = false;
-    Serial.println("NACK recebido");
+    //Serial.println("NACK recebido");
     I_Received_Something = true;
   }
   if(!I_Received_Something){
-    Serial.println("ACK OU NACK PERDIDO");
+    //Serial.println("ACK OU NACK PERDIDO");
+    flag1=false;
   }
   I_Received_Something = false;
   return flag1;
