@@ -1,0 +1,4 @@
+  RTT_Time = micros();
+  RTT_Time = RTT_Time-Start_Timer;
+  Serial.print(RTT_Time*0.000001);
+  Serial.println("segundos");

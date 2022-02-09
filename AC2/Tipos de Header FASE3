@@ -1,0 +1,7 @@
+Tipos de Header
+0b00010110 -> Trama Não Final do Pacote
+0b00010010 -> Trama Final do Pacote
+0b00011010 -> Pacote Final
+0b01000010 -> Ack
+0b00010100 -> Nack
+
